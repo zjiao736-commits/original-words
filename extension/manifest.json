@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "本地对话收藏器",
+  "version": "0.10.2",
+  "description": "将已打开的 AI 对话保存到本机，不调用模型。",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8765/*",
+    "https://gemini.google.com/*",
+    "https://chatgpt.com/*",
+    "https://chat.deepseek.com/*",
+    "https://www.doubao.com/*",
+    "https://doubao.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    }
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlgBSPyu8TCJjMHceTJp7nEHCwEZ85CLsIxo1h58qZcSezKjeEk1BCA89DSpyIDj5q2D9AXBI3LnLr6CPxX2si7bcP01EWKfviQsmu43VrmXHQTJK7RIMqjT/1eH8wDGy7m1DYUgo+U2rZVLbqHFgSFbbglqXeBv3rZtw2nrO7P9EzQqBTgjHfHdOHLQi+p03qFlxJ3oTdD1IkeoNxwQmRRXBgMsHNyo7scurgWbVOyoFGteAfQMzzvHwrZYe/kPqn53SbroeVWvaY+ClwSHWiax4xy8HXur3an1VcLnSdwDI6osEmAC12/pxbdo7c2Hy1izyyy6LrEroyv7cn+1siQIDAQAB",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "externally_connectable": {
+    "matches": [
+      "http://127.0.0.1/*",
+      "http://localhost/*"
+    ]
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "minimum_chrome_version": "120"
+}

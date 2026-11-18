@@ -1,0 +1,356 @@
+"""本地对话收藏器：仅标准库，无模型调用。"""
+import base64
+from import_chatgpt import import_export
+import jobs
+from collector_v2 import CollectorRegistry,PLATFORMS
+from provider_catalog import PROVIDERS
+import json, sqlite3, hashlib, os, subprocess, sys, threading, time, uuid
+from pathlib import Path
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlparse, parse_qs
+
+ROOT = Path(__file__).resolve().parent
+DB = ROOT / 'archive.sqlite3'
+ALLOWED = {'chatgpt.com', 'chat.deepseek.com', 'www.doubao.com', 'doubao.com', 'gemini.google.com'}
+
+def connect():
+    c = sqlite3.connect(DB)
+    c.row_factory = sqlite3.Row
+    return c
+
+with connect() as c:
+    c.execute('CREATE TABLE IF NOT EXISTS collection_reviews (account_id TEXT, url TEXT, reason TEXT, PRIMARY KEY(account_id,url))')
+    c.execute('CREATE TABLE IF NOT EXISTS snapshots (id INTEGER PRIMARY KEY, conversation_id TEXT, payload TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP)')
+    c.execute('CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, title TEXT, url TEXT, platform TEXT, body TEXT, updated TEXT DEFAULT CURRENT_TIMESTAMP)')
+
+RULES = {
+ '情绪与心理':['焦虑','难过','痛苦','失眠','心理','情绪','内耗','害怕','孤独'],
+ '人生决策':['选择','决定','辞职','转行','要不要','人生规划','不上班'],
+ '人生经历':['小时候','毕业','离婚','前夫','经历','以前','那一年','大学'],
+ '工作与项目':['工作','项目','客户','运营','招商','方案','商业','投资'],
+ '写作与创作':['写作','文章','公众号','小红书','标题','封面','文案','视频'],
+ '学习与工具':['学习','教程','工具','代码','自动化','agent','token']
+}
+def classify(text):
+    t=text.lower()
+    return [k for k,words in RULES.items() if any(w in t for w in words)] or ['待分类']
+
+with connect() as c:
+    cols={r['name'] for r in c.execute('PRAGMA table_info(conversations)')}
+    for name in ['messages','tags']:
+        if name not in cols: c.execute("ALTER TABLE conversations ADD COLUMN "+name+" TEXT DEFAULT '[]'")
+
+PAGE = r'''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>对话收藏器</title>
+<style>body{max-width:1000px;margin:50px auto;background:#f6f5f1;color:#252525;font:16px system-ui;padding:20px}h1{font-size:32px}input{padding:14px;width:70%;border:1px solid #ccc;border-radius:9px}button{padding:13px;cursor:pointer}article{background:white;padding:22px;margin:16px 0;border-radius:12px}pre{white-space:pre-wrap;word-break:break-word;font:14px/1.8 system-ui}a{color:#5964bc}.hint{color:#666}</style>
+<h1>我的对话档案</h1><p class="hint">本地存储 · 不调用 AI · 不消耗模型 token</p>
+<p><a href="/results">查看本次采集结果与下载 →</a> · <a href="/setup">采集向导 →</a></p><input id="q" placeholder="搜索标题或正文"><button id="search">搜索</button> <button id="export">导出全部 JSON</button><select id="category"><option value="">全部分类</option></select><p>默认展示你的原话；角色未识别的内容单独保留。关键词分类仅作建议，不是心理诊断。</p><p id="count"></p><main id="list"></main>
+<script>
+const $=s=>document.querySelector(s);let rows=[];
+async function search(){let r=await fetch('/api/items?q='+encodeURIComponent($('#q').value));rows=await r.json();const cat=$('#category'),chosen=cat.value;const cats=[...new Set(rows.flatMap(x=>x.tags))];cat.replaceChildren(new Option('全部分类',''),...cats.map(t=>new Option(t,t)));cat.value=chosen;$('#list').replaceChildren();let count=0;for(const x of rows){if(chosen&&!x.tags.includes(chosen))continue;count++;let a=document.createElement('article'),h=document.createElement('h3'),p=document.createElement('p'),pre=document.createElement('pre'),d=document.createElement('details'),sum=document.createElement('summary'),raw=document.createElement('pre'),edit=document.createElement('button');h.textContent=x.title;p.textContent=x.platform+' · '+x.tags.join(' / ');const users=x.messages.filter(m=>m.role==='user');pre.textContent=users.length?users.map(m=>m.text).join('\n\n'):'尚未识别你的原话。此条暂不用于个人素材分析。';edit.textContent='修改分类';edit.onclick=async()=>{const v=prompt('分类以逗号分隔，可填写自定义分类',x.tags.join(','));if(v===null)return;await update(x,v.split(/[,，]/).map(t=>t.trim()).filter(Boolean));search()};a.append(h,p,edit,pre);for(const [i,m] of x.messages.entries()){if(m.role!=='assistant')continue;let label=document.createElement('label'),check=document.createElement('input'),detail=document.createElement('details'),sm=document.createElement('summary'),text=document.createElement('pre');check.type='checkbox';check.style.width='auto';check.checked=!!m.selected;check.onchange=async()=>{m.selected=check.checked;await update(x,x.tags)};label.append(check,document.createTextNode('收录此条有价值的 AI 回复'));sm.append(label);text.textContent=m.text;detail.append(sm,text);a.append(detail)}sum.textContent='查看原始采集内容';raw.textContent=x.body;d.append(sum,raw);a.append(d);$('#list').append(a)}$('#count').textContent=count+' 条记录'}
+async function update(x,tags){const r=await fetch('/api/edit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:x.id,tags,selected:x.messages.flatMap((m,i)=>m.selected?[i]:[])})});if(!r.ok)alert('保存失败')}
+$('#category').onchange=search;
+$('#search').onclick=search;$('#q').onkeydown=e=>{if(e.key==='Enter')search()};$('#export').onclick=async()=>{let r=await fetch('/api/items'),all=await r.json(),u=URL.createObjectURL(new Blob([JSON.stringify(all,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download='对话档案.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};search();</script></html>'''
+
+with connect() as c:
+    cols={x[1] for x in c.execute('PRAGMA table_info(conversations)')}
+    for name in ['account_id','account_label']:
+        if name not in cols:c.execute('ALTER TABLE conversations ADD COLUMN '+name+" TEXT DEFAULT ''")
+
+BRIDGE_FRESH_SECONDS=180
+REGISTRY=CollectorRegistry(ttl=BRIDGE_FRESH_SECONDS)
+BRIDGES=REGISTRY.bridges
+BRIDGE_COMMANDS={}
+bridge_lock=threading.Lock()
+worker_process = None
+worker_lock = threading.Lock()
+
+def browser_state(selection=None):
+    selection=selection or {}
+    state={'status':'ready','message':'控制台已就绪','queue':[],'platforms':{},'accounts':[]}
+    try:
+        legacy=json.loads((ROOT/'browser-state.json').read_text())
+        state['queue']=legacy.get('queue',[])
+    except (OSError,ValueError):pass
+    modern=REGISTRY.states() if all(isinstance(k,tuple) for k in BRIDGES) else [REGISTRY.state(v) for k,v in BRIDGES.items() if isinstance(k,tuple)]
+    with connect() as c:reviews={(r['account_id'],r['url']):r['reason'] for r in c.execute('SELECT * FROM collection_reviews')}
+    for item in modern:
+        for entry in item['queue']:
+            reason=reviews.get((item['accountId'],entry.get('url')))
+            if reason:entry['status']='partial';entry['error']=reason
+        item['saved']=item['completed']=sum(q.get('status')=='saved' for q in item['queue'])
+        item['failed']=sum(q.get('status')=='failed' for q in item['queue'])
+        item['partial']=sum(q.get('status')=='partial' for q in item['queue'])
+        if item['partial'] and item['status']=='done':item['status']='partial';item['message']='本轮已处理，局部记录待复核；旧完整档案已保留'
+    state['accounts']=modern
+    for platform in PLATFORMS:
+        values=[x for x in modern if x['platform']==platform]
+        selected=selection.get(platform)
+        chosen=next((x for x in values if x['accountId']==selected),None) if selected else None
+        if not chosen and len(values)==1:chosen=values[0]
+        if chosen:
+            state['platforms'][platform]={k:v for k,v in chosen.items() if k!='queue'}
+            state['queue']=[x for x in state['queue'] if x.get('platform')!=platform]+[dict(x,platform=platform,accountId=chosen['accountId']) for x in chosen['queue']]
+        else:state['platforms'][platform]={'status':'disconnected','connected':False,'message':'请选择来源账号' if values else '尚未连接账号','bridge':True,'protocol':2}
+    # 旧版本页面仅兼容显示，不参与新协议账号路由。
+    for key,bridge in list(BRIDGES.items()):
+        if not isinstance(key,str) or key not in PLATFORMS:continue
+        q=bridge.get('queue',[]);fresh=time.time()-bridge.get('last_seen',0)<BRIDGE_FRESH_SECONDS
+        state['platforms'][key]={'status':bridge.get('status','ready') if fresh else 'paused','message':bridge.get('message','') if fresh else '旧版页面暂未响应，请更新扩展','bridge':True,'protocol':1,'connected':fresh and bool(bridge.get('source')),'source':bridge.get('source'),'saved':sum(v.get('status')=='saved' for v in q),'failed':sum(v.get('status')=='failed' for v in q),'completed':sum(v.get('status')=='saved' for v in q),'total':len(q)}
+    return state
+
+def enqueue(action,platform,mode="gentle"):
+    folder=ROOT/'commands';folder.mkdir(exist_ok=True)
+    target=folder/(str(time.time_ns())+'-'+uuid.uuid4().hex+'.json')
+    tmp=target.with_suffix('.tmp');tmp.write_text(json.dumps({'action':action,'platform':platform,'mode':mode}));tmp.replace(target)
+
+class Handler(BaseHTTPRequestHandler):
+    def reply(self, status, payload, typ='application/json; charset=utf-8', filename=None):
+        data = payload if isinstance(payload,bytes) else payload.encode() if isinstance(payload,str) else json.dumps(payload,ensure_ascii=False).encode()
+        self.send_response(status)
+        self.send_header('Content-Type',typ)
+        if filename: self.send_header('Content-Disposition','attachment; filename="'+filename+'"')
+        self.send_header('X-Content-Type-Options','nosniff')
+        self.send_header('Cache-Control','no-store')
+        self.end_headers(); self.wfile.write(data)
+
+    def valid_host(self):
+        return self.headers.get('Host') in {'127.0.0.1:8765','localhost:8765'}
+
+    def log_message(self,format,*args):
+        if self.path.startswith(('/api/browser','/api/jobs','/api/stats','/api/bridge')):return
+        super().log_message(format,*args)
+
+    def do_GET(self):
+        if not self.valid_host(): return self.reply(403,{'error':'Host rejected'})
+        p=urlparse(self.path)
+        if p.path=='/connect':return self.reply(200,(ROOT/'connect.html').read_text(),'text/html; charset=utf-8')
+        if p.path=='/connect.js':return self.reply(200,(ROOT/'connect.js').read_text(),'application/javascript; charset=utf-8')
+        if p.path=='/api/history-index':
+            if parse_qs(p.query).get('platform',[''])[0]!='chatgpt':return self.reply(200,{'items':[]})
+            path=ROOT/'chatgpt-history-index.json'
+            if not path.exists():return self.reply(200,{'items':[]})
+            index=json.loads(path.read_text())
+            with connect() as c:saved={r[0] for r in c.execute("SELECT url FROM conversations WHERE platform='chatgpt.com'")}
+            for item in index.get('items',[]):item['saved']=item.get('url') in saved
+            return self.reply(200,index)
+        if p.path=='/api/extension-config':return self.reply(200,{'id':(ROOT/'extension-id.txt').read_text().strip(),'path':str(ROOT/'extension'),'required_version':json.loads((ROOT/'extension/manifest.json').read_text())['version']})
+        if p.path=='/api/bridge-command':
+            query=parse_qs(p.query);platform=query.get('platform',[''])[0];account=query.get('accountId',[''])[0];runner=query.get('runnerId',[''])[0]
+            if not account or not runner:return self.reply(200,{})
+            try:return self.reply(200,REGISTRY.poll(platform,account,runner))
+            except ValueError as e:return self.reply(400,{'error':str(e)})
+        if p.path=='/api/saved-index':
+            platform=parse_qs(p.query).get('platform',[''])[0];account=parse_qs(p.query).get('accountId',[''])[0]
+            if platform not in PLATFORMS:return self.reply(400,{'error':'invalid platform'})
+            host=PLATFORMS[platform]['host']
+            if not account:return self.reply(400,{'error':'accountId required'})
+            with connect() as c:
+                rows=c.execute('SELECT id,url,account_id FROM conversations WHERE platform=? AND account_id=?',(host,account)).fetchall()
+                urls=[]
+                for row in rows:
+                    if c.execute('SELECT 1 FROM collection_reviews WHERE account_id=? AND url=?',(account,row['url'])).fetchone():continue
+                    snap=c.execute('SELECT payload FROM snapshots WHERE conversation_id=? ORDER BY id DESC LIMIT 1',(row['id'],)).fetchone()
+                    if not snap:continue
+                    try:metadata=json.loads(snap['payload']).get('metadata',{})
+                    except (ValueError,TypeError):continue
+                    if metadata.get('completeness')=='partial':continue
+                    urls.append(row['url'])
+            return self.reply(200,{'urls':urls,'scope':'current-account-saved-snapshots'})
+        if p.path=='/api/jobs': return self.reply(200,jobs.snapshot())
+        if p.path=='/api/stats':
+            with connect() as c: rows=c.execute('SELECT platform,COUNT(*) AS conversations FROM conversations GROUP BY platform').fetchall()
+            values=[dict(r) for r in rows]
+            index_path=ROOT/'chatgpt-history-index.json'
+            if index_path.exists():
+                try:
+                    count=len(json.loads(index_path.read_text()).get('items',[]))
+                    for item in values:
+                        if item['platform']=='chatgpt.com':item['history_indexed']=count
+                except (OSError,ValueError):pass
+            return self.reply(200,values)
+        if p.path.startswith('/assets/'):
+            name=p.path[len('/assets/'):]
+            if not name or Path(name).name!=name or Path(name).suffix not in {'.svg','.png','.jpg','.webp','.ico'}:return self.reply(404,{'error':'not found'})
+            asset=ROOT/'assets'/name
+            if not asset.is_file():return self.reply(404,{'error':'not found'})
+            types={'.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon'}
+            return self.reply(200,asset.read_bytes(),types[asset.suffix])
+        if p.path=='/provider_catalog.json':return self.reply(200,PROVIDERS)
+        if p.path=='/api/import-example':
+            return self.reply(200,[{'id':'example-1','title':'Example conversation','source':'My Agent','account':'personal','messages':[{'role':'user','text':'Keep this original expression.'},{'role':'assistant','text':'Assistant context is kept separately.'}]}],'application/json; charset=utf-8','conversation-example.json')
+        if p.path=='/i18n.js':return self.reply(200,(ROOT/'i18n.js').read_text(),'application/javascript; charset=utf-8')
+        if p.path=='/dashboard.js':return self.reply(200,(ROOT/'dashboard.js').read_text(),'application/javascript; charset=utf-8')
+        if p.path=='/dashboard.css':return self.reply(200,(ROOT/'dashboard.css').read_text(),'text/css; charset=utf-8')
+        if p.path=='/api/library':
+            args=parse_qs(p.query);q=args.get('q',[''])[0];host=args.get('platform',[''])[0];offset=max(0,int(args.get('offset',['0'])[0]));where='(title LIKE ? OR body LIKE ?)';params=['%'+q+'%','%'+q+'%']
+            if host:where+=' AND platform=?';params.append(host)
+            with connect() as c:
+                total=c.execute('SELECT COUNT(*) FROM conversations WHERE '+where,params).fetchone()[0]
+                rows=c.execute('SELECT id,title,platform,tags,updated,length(body) AS characters FROM conversations WHERE '+where+' ORDER BY updated DESC,id LIMIT 20 OFFSET ?',params+[offset]).fetchall()
+            return self.reply(200,{'total':total,'items':[dict(r) for r in rows]})
+        if p.path=='/api/item':
+            key=parse_qs(p.query).get('id',[''])[0]
+            with connect() as c:row=c.execute('SELECT * FROM conversations WHERE id=?',(key,)).fetchone()
+            if not row:return self.reply(404,{'error':'not found'})
+            item=dict(row);item['messages']=json.loads(item['messages']);item['tags']=json.loads(item['tags']);return self.reply(200,item)
+        if p.path=='/results': return self.reply(200,(ROOT/'results.html').read_text(),'text/html; charset=utf-8')
+        if p.path=='/api/report': return self.reply(200,(ROOT/'exports/采集核验报告.json').read_bytes())
+        if p.path=='/download':
+            args=parse_qs(p.query);platform=args.get('platform',[''])[0];kind=args.get('kind',[''])[0]
+            names={k:v['name'].replace('/','-') for k,v in PROVIDERS.items()};files={'user':'我的原话汇总.md','raw':'全部原始对话.json'}
+            if platform not in names or kind not in files:return self.reply(400,{'error':'invalid download'})
+            path=ROOT/'exports'/names[platform]/files[kind]
+            if not path.exists():return self.reply(404,{'error':'export not ready'})
+            return self.reply(200,path.read_bytes(),'text/plain; charset=utf-8',platform+'-'+kind+path.suffix)
+        if p.path=='/api/browser':
+            try:selection=json.loads(parse_qs(p.query).get('accounts',['{}'])[0])
+            except ValueError:return self.reply(400,{'error':'invalid account selection'})
+            return self.reply(200,browser_state(selection))
+        if p.path=='/library': return self.reply(200,(ROOT/'setup.html').read_text(),'text/html; charset=utf-8')
+        if p.path=='/setup': return self.reply(200,(ROOT/'setup.html').read_text(),'text/html; charset=utf-8')
+        if p.path=='/': return self.reply(200,PAGE,'text/html; charset=utf-8')
+        if p.path=='/api/items':
+            q=parse_qs(p.query).get('q',[''])[0]
+            with connect() as c:
+                rows=c.execute('SELECT * FROM conversations WHERE title LIKE ? OR body LIKE ? ORDER BY updated DESC',('%'+q+'%','%'+q+'%')).fetchall()
+            items=[]
+            for r in rows:
+                item=dict(r)
+                item['messages']=json.loads(item['messages'] or '[]')
+                item['tags']=json.loads(item['tags'] or '[]')
+                items.append(item)
+            return self.reply(200,items)
+        self.reply(404,{'error':'not found'})
+
+    def do_POST(self):
+        if not self.valid_host(): return self.reply(403,{'error':'Host rejected'})
+        origin=self.headers.get('Origin','')
+        if origin and origin not in {'http://127.0.0.1:8765','http://localhost:8765'} and not origin.startswith('chrome-extension://'): return self.reply(403,{'error':'Origin rejected'})
+        if self.path not in {'/api/collect','/api/edit','/api/browser','/api/import','/api/import-file','/api/bridge','/api/connection-diagnostic'}: return self.reply(404,{'error':'not found'})
+        try:
+            n=int(self.headers.get('Content-Length','0'))
+            if n<=0 or n>(140_000_000 if self.path in {'/api/import','/api/import-file'} else 5_000_000): return self.reply(413,{'error':'invalid size'})
+            if self.path=='/api/import-file':
+                platform=self.headers.get('X-Import-Platform','chatgpt')
+                if platform not in PROVIDERS:raise ValueError('unsupported platform')
+                if n>100*1024*1024:return self.reply(413,{'error':'文件超过100MB，请分批导入'})
+                raw=self.rfile.read(n)
+                return self.reply(202,{'id':jobs.submit(raw,platform,ROOT,connect,classify)})
+            x=json.loads(self.rfile.read(n))
+            if not isinstance(x,dict): raise ValueError('expected object')
+            if self.path=='/api/connection-diagnostic':
+                record={k:str(x.get(k,''))[:500] for k in ['platform','stage','error','hasRuntime','origin','version']}
+                record['time']=time.time()
+                (ROOT/'connection-diagnostic.json').write_text(json.dumps(record,ensure_ascii=False))
+                return self.reply(200,{'ok':True})
+            if self.path=='/api/bridge':
+                key=x.get('platform')
+                if x.get('accountId') and x.get('runnerId'):
+                    state=REGISTRY.upsert(x)
+                    return self.reply(200,{'ok':True,'ackRequestId':state.get('ackRequestId')})
+                if key not in PLATFORMS or not isinstance(x.get('queue',[]),list):raise ValueError('invalid bridge')
+                return self.reply(409,{'error':'请加载v0.9.0扩展后继续，已有档案保留','needsUpdate':True})
+            if self.path=='/api/import':
+                raw=base64.b64decode(x.get('data',''),validate=True)
+                return self.reply(200,import_export(raw,ROOT,connect,classify))
+            if self.path=='/api/browser':
+                global worker_process
+                action=x.get('action')
+                platform=x.get('platform','gemini')
+                if platform not in {'gemini','chatgpt','deepseek','doubao'}: raise ValueError('invalid platform')
+                if action not in {'connect','collect','open','discover','start','pause','close','normal','export','background','retry','extension','extension-open','extension-install'}: raise ValueError('invalid action')
+                if action=='extension-install':
+                    subprocess.Popen(['open','-a','Google Chrome','chrome://extensions/'])
+                    subprocess.Popen(['open',str(ROOT/'extension')])
+                    return self.reply(200,{'ok':True})
+                if action in {'connect','collect','open','discover','start','background','retry','pause','extension','extension-open'}:
+                    mapped={'background':'collect','extension':'connect','extension-open':'connect','open':'connect','start':'collect'}.get(action,action)
+                    result=REGISTRY.enqueue(platform,mapped,x.get('accountId'),x.get('runnerId'),x.get('requestId'))
+                    return self.reply(200 if result.get('ok') else 409,result)
+                if action in {'normal','export'}:
+                    urls={'chatgpt':'https://chatgpt.com/','gemini':'https://gemini.google.com/','deepseek':'https://chat.deepseek.com/','doubao':'https://www.doubao.com/'}
+                    url=('https://takeout.google.com/' if platform=='gemini' else 'https://chatgpt.com/#settings/DataControls') if action=='export' else urls[platform]
+                    subprocess.Popen(['open','-a','Google Chrome',url])
+                    return self.reply(200,{'ok':True})
+                with worker_lock:
+                    alive=worker_process is not None and worker_process.poll() is None
+                    if action=='open' and alive and browser_state().get('headless'):
+                        active=any(v.get('status') in {'discovering','collecting','pausing'} for v in browser_state().get('platforms',{}).values())
+                        if active:return self.reply(409,{'error':'后台任务进行中，请先暂停，再连接登录窗口'})
+                        enqueue('close',platform)
+                        try:worker_process.wait(timeout=8)
+                        except subprocess.TimeoutExpired:return self.reply(409,{'error':'后台正在退出，请稍后重试'})
+                        alive=False
+                    if not alive and action in {'open','background','start','retry'}:
+                        (ROOT/'browser-command.json').unlink(missing_ok=True)
+                        (ROOT/'browser-platform.txt').write_text(platform)
+                        args=[sys.executable,str(ROOT/'browser_worker.py')]
+                        if action!='open':args.append('--background')
+                        with (ROOT/'browser.log').open('a') as log:
+                            worker_process=subprocess.Popen(args,cwd=ROOT,stdout=log,stderr=log)
+                        if action!='open':enqueue(action,platform,mode=x.get('mode','gentle'))
+                    elif not alive:return self.reply(409,{'error':'请先连接平台，或点击后台增量同步'})
+                    else:enqueue(action,platform,mode=x.get('mode','gentle'))
+                return self.reply(200,{'ok':True})
+            if self.path=='/api/edit':
+                tags=x.get('tags',[]); selected=x.get('selected',[])
+                if not isinstance(tags,list) or not all(isinstance(t,str) for t in tags): raise ValueError('invalid tags')
+                if not isinstance(selected,list) or not all(type(i) is int for i in selected): raise ValueError('invalid selection')
+                with connect() as c:
+                    row=c.execute('SELECT messages FROM conversations WHERE id=?',(x['id'],)).fetchone()
+                    if not row: return self.reply(404,{'error':'not found'})
+                    messages=json.loads(row['messages'] or '[]')
+                    for i,m in enumerate(messages): m['selected']=m['role']=='assistant' and i in selected
+                    c.execute('UPDATE conversations SET tags=?,messages=? WHERE id=?',(json.dumps(tags,ensure_ascii=False),json.dumps(messages,ensure_ascii=False),x['id']))
+                return self.reply(200,{'ok':True})
+            url=x['url']; host=urlparse(url).hostname
+            if host not in ALLOWED or urlparse(url).scheme!='https': raise ValueError('unsupported URL')
+            body=x['body']; title=x.get('title','未命名对话')
+            if not isinstance(body,str) or not body.strip() or not isinstance(title,str): raise ValueError('empty body')
+            account_id=str(x.get('metadata',{}).get('accountId',''))
+            account_label=str(x.get('metadata',{}).get('sourceAccount',''))
+            if len(account_id)>120 or len(account_label)>200:raise ValueError('invalid account metadata')
+            key=hashlib.sha256(((account_id+'|') if account_id else '').encode()+url.encode()).hexdigest()
+            if account_id:
+                with connect() as c:
+                    previous=c.execute("SELECT id FROM conversations WHERE url=? AND (account_id='' OR account_id=?) LIMIT 1",(url,account_id)).fetchone()
+                    if previous:key=previous['id']
+            messages=x.get('messages',[])
+            if not isinstance(messages,list): raise ValueError('invalid messages')
+            clean=[]
+            for m in messages:
+                if not isinstance(m,dict) or m.get('role') not in {'user','assistant','unknown'} or not isinstance(m.get('text'),str): raise ValueError('invalid message')
+                clean.append({'role':m['role'],'text':m['text'],'selected':False})
+            # 页面未完全加载时，保留更完整的既有档案；新快照仍保存供核对。
+            with connect() as c:
+                previous=c.execute('SELECT messages FROM conversations WHERE id=?',(key,)).fetchone()
+                if previous:
+                    prior_messages=json.loads(previous['messages'] or '[]')
+                    old_user=''.join(m['text'] for m in prior_messages if m['role']=='user')
+                    new_user=''.join(m['text'] for m in clean if m['role']=='user')
+                    if len(new_user)<len(old_user):
+                        c.execute('INSERT INTO snapshots(conversation_id,payload) VALUES(?,?)',(key,json.dumps(x,ensure_ascii=False)))
+                        reason='本次原话比既有档案短，已保留旧档案和新快照，请检查页面加载是否完整'
+                        if x.get('metadata',{}).get('collectorProtocol')==2:
+                            c.execute('INSERT OR REPLACE INTO collection_reviews(account_id,url,reason) VALUES(?,?,?)',(account_id,url,reason))
+                            return self.reply(200,{'ok':True,'preserved':True,'needsReview':True,'id':key})
+                        return self.reply(409,{'error':reason})
+            with connect() as c:
+                c.execute('INSERT INTO conversations(id,title,url,platform,body,account_id,account_label) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,body=excluded.body,account_id=excluded.account_id,account_label=excluded.account_label,updated=CURRENT_TIMESTAMP',(key,title,url,host,body,account_id,account_label))
+            with connect() as c:
+                c.execute('INSERT INTO snapshots(conversation_id,payload) VALUES(?,?)',(key,json.dumps(x,ensure_ascii=False)))
+                prior=c.execute('SELECT messages,tags FROM conversations WHERE id=?',(key,)).fetchone()
+                old=json.loads(prior['messages'] or '[]')
+                chosen={m['text'] for m in old if m.get('selected')}
+                for m in clean: m['selected']=m['role']=='assistant' and m['text'] in chosen
+                usertext='\n'.join(m['text'] for m in clean if m['role']=='user')
+                tags=json.loads(prior['tags'] or '[]') or classify(usertext) if usertext else json.loads(prior['tags'] or '[]') or ['待识别角色']
+                c.execute('UPDATE conversations SET messages=?,tags=? WHERE id=?',(json.dumps(clean,ensure_ascii=False),json.dumps(tags,ensure_ascii=False),key))
+                if x.get('metadata',{}).get('completeness')!='partial':c.execute('DELETE FROM collection_reviews WHERE account_id=? AND url=?',(account_id,url))
+            self.reply(200,{'ok':True,'id':key})
+        except (ValueError,KeyError,TypeError,UnicodeError) as e: self.reply(400,{'error':str(e)})
+
+if __name__=='__main__':
+    os.chmod(DB,0o600)
+    print('对话收藏器：http://127.0.0.1:8765 （Ctrl+C 停止）',flush=True)
+    ThreadingHTTPServer(('127.0.0.1',8765),Handler).serve_forever()

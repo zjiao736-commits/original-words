@@ -1,0 +1,32 @@
+# Private account data and original material: never publish.
+archive.sqlite3*
+imports/
+exports/
+browser-profile/
+browser-state.json
+browser-platform.txt
+browser-command.json
+commands/
+chatgpt-history-index.json
+*-structure.json
+*.log
+__pycache__/
+*.pyc
+.DS_Store
+# Root screenshots may contain real private account status.
+/*.png
+
+connection-diagnostic.json
+
+# Local media, models, environments, and unpublished working material
+.voice-venv/
+.tts-runtime/
+演示素材/
+/*.jpg
+/*.jpeg
+/*.webm
+/*.mp4
+/*.wav
+/*.m4a
+
+.release-tools/

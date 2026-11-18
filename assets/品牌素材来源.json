@@ -1,0 +1,9 @@
+{
+  "sources": {
+    "chatgpt.svg": "https://chatgpt.com/cdn/assets/favicon.6a33781f61.svg",
+    "deepseek.svg": "https://fe-static.deepseek.com/chat/favicon.svg",
+    "doubao.png": "https://lf-flow-web-cdn.doubao.com/obj/flow-doubao/favicon/new-doubao/128x128.png",
+    "gemini.png": "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png"
+  },
+  "note": "图标来自各品牌官方页面，商标权归各品牌；不代表品牌背书，不包含在本项目代码许可授权内。"
+}
