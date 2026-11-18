@@ -2,84 +2,76 @@
 
 **Bring the ideas scattered across your AI chats back to your computer.**
 
-[中文](README.md) · [Provider capabilities](docs/PROVIDERS.md) · [Verification scope](docs/RELEASE_CHECK.md) · MIT
+Local deployment · No model tokens for collection or archiving · Chinese / English UI
 
-Yuanhua is a local archive for your AI conversations. Keep your original words, retain AI replies as context, and search or export ideas you want to use again.
+Yuanhua is a local AI conversation collector and archive. Bring work notes, ideas, and personal reflections from different platforms into one place. Keep your original words, search them, and export material you want to use again.
 
-Collection, import, search, and keyword categorization make no model calls and require no model API key. Provider access still needs internet and your own account. Any later AI use has its own costs.
+No model API setup or model credits are required for collection, import, search, or keyword categorization. On a Mac with Python 3 installed, download, extract, and double-click to start. Browser collection requires a one-time Chrome extension setup and provider sign-in; supported files can be imported directly.
 
-> **macOS development preview.** Browser collection depends on provider page structure and cannot guarantee a complete account history. Other operating systems and all account environments have not been verified.
+[Download source](https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-0.10.3-source.zip) · [中文](README.md) · [Provider support](docs/PROVIDERS.md)
 
-## 30-second demo
+## Product demo
 
-No narration · Captions and motion · Example data. Click the cover to watch or download.
+<a href="https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-demo.mp4"><img src="https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-cover.png" width="260" alt="Yuanhua product demo"></a>
 
-<a href="https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.2/Yuanhua-demo.mp4"><img src="https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.2/Yuanhua-cover.png" width="260" alt="Yuanhua demo"></a>
+[Watch the demo](https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-demo.mp4)
 
-[MP4](https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.2/Yuanhua-demo.mp4) · [素材与配乐说明 / Media credits](docs/MEDIA.md)
+## What you can do
 
-## Features
+- **Bring scattered records together:** collect through the browser or import files into one local archive.
+- **Keep your original words:** your messages come first, with AI replies and raw context available separately. Nothing is rewritten or polished.
+- **Find material again:** search titles and text, filter by source, and revisit earlier ideas.
+- **Reuse your archive:** export Markdown or JSON for writing, research, or local agents you authorize to read files.
+- **Switch interface languages:** Chinese and English UI, with original conversation text preserved.
 
-- Local storage with your original words first; AI replies and raw context expand separately.
-- Collection from signed-in Chrome pages or file imports.
-- Source filtering, search, and Markdown / JSON export for local agents you authorize to read files.
-- Keyword categorization without rewriting; unclear roles remain unidentified.
-- Chinese / English interface without translating your private material.
+## Get started in three steps
 
-## Provider support
+The source edition requires macOS and Python 3. Browser collection also requires Google Chrome.
+
+### 1. Download and start
+
+[Download the source ZIP](https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-0.10.3-source.zip), extract it, and double-click `启动.command`.
+
+If macOS blocks direct execution, open a terminal in the extracted `yuanhua` folder and run:
+
+```bash
+python3 desktop_launcher.py
+```
+
+The local dashboard opens at `http://127.0.0.1:8765/setup`.
+
+### 2. Choose a source
+
+**File import:** select a supported provider export. No extension is required.
+
+**Browser collection:** follow the dashboard instructions to install the Chrome extension once. Sign in to the provider in the same Chrome profile, return to the dashboard, connect, and start collection. Extension installation and provider sign-in require your confirmation.
+
+### 3. Search and export
+
+Search and revisit records in **My words**. Download Markdown or JSON in **Export & backup**. Start the tool again for later use.
+
+## Supported providers
 
 | Source | Available method |
 |---|---|
-| ChatGPT, Gemini, DeepSeek, Doubao | Browser adapters, subject to verification prompts and page changes |
-| ChatGPT | Official conversations.json / ZIP import |
-| Gemini | Google Takeout JSON / activity HTML, available text only |
-| Claude | conversations.json / ZIP import, tested with structural fixtures |
-| Kimi, Grok, other AI / agents | Documented generic JSON import; no browser adapter yet |
+| ChatGPT, Gemini, DeepSeek, Doubao | Browser collection |
+| ChatGPT, Gemini, Claude | Corresponding provider-export import |
+| Kimi, Grok, other AI / agents | Generic JSON import |
 
-**Add another AI / Agent** is a file-import entry, not arbitrary website account binding or verified full-history collection. Set `account` to separate accounts and `source` to distinguish other agents. See the [supported schema](docs/PROVIDERS.md).
+**Add another AI / Agent** is a file-import entry; arbitrary website account binding is not supported. Set `account` in generic JSON to separate accounts, and `source` to distinguish other agents.
 
-## First run
+[Provider capabilities and import schema](docs/PROVIDERS.md)
 
-Requires macOS and Python 3. Browser collection also needs Google Chrome. The everyday service uses the Python standard library.
+## Local storage and scope
 
-1. Download and extract the source ZIP, preserving the directory structure.
-2. Double-click `启动.command` to open the dashboard. If macOS blocks direct execution, open a terminal in the extracted folder and run:
+Archived records, imported source files, and exported material stay on your computer. Stop tasks and the service before making a full backup of `archive.sqlite3`, `imports/`, and `exports/`.
 
-   ```bash
-   python3 desktop_launcher.py
-   ```
+This is a macOS development preview. Browser collection requires internet and your signed-in account. Provider page changes, verification prompts, or sleep may pause collection; discovered counts are not complete account-history totals. Attachments are not downloaded automatically. Import again to capture new messages in an existing conversation. Windows / Linux desktop startup is not supported yet.
 
-3. The launcher opens `http://127.0.0.1:8765/setup` locally.
-4. **File import:** use the provider import option or expand **Add another AI / Agent**. No browser extension is needed for this method.
-5. **Browser collection:** follow the dashboard instructions to open Chrome extensions, enable Developer mode, choose **Load unpacked**, and select the `extension` folder. Chrome requires your confirmation.
-6. Sign in to your provider in the same Chrome profile. Return to the dashboard, connect the account, and start collection. Complete sign-in or verification yourself.
-7. Search in **My words** and download Markdown / JSON in **Export & backup**.
+Collection and archiving make no model calls. Later processing with other AI tools has its own costs.
 
-Run the launcher again for later use. A source download does not install a desktop app. Keep Chrome, the service, and the computer running during collection. Sleep or provider verification may pause tasks; saved data remains available.
+## Open source and license
 
-## Accounts and privacy
+Code and original documentation use [MIT](LICENSE). Contributions to adapters, import formats, and usability are welcome. [Contributing](CONTRIBUTING.md) · [Media credits](docs/MEDIA.md)
 
-Sources are stored separately. Browser **Add account** works only within sessions the current Chrome profile can identify; it does not read other browser profiles. Discovered counts are not verified complete account-history counts.
-
-`archive.sqlite3` contains records and snapshots; `imports/` holds source files, and `exports/` holds generated documents. Stop tasks and the service before making a full backup. Markdown / JSON downloads do not contain every historical snapshot.
-
-Attachments are not downloaded automatically. Saved conversations are skipped; import again to capture messages added to an existing conversation. Never publish your personal working folder.
-
-## Contributing
-
-New adapters, import parsers, translations, and installation improvements are welcome. Declare whether a provider supports browser collection, official export import, or only generic JSON.
-
-```bash
-python3 -m unittest -v test_provider_imports
-python3 package_release.py --output /tmp/yuanhua-source.zip
-```
-
-See [verification scope](docs/RELEASE_CHECK.md). Source releases exclude personal chats, recordings, browser profiles, downloaded models, and virtual environments.
-
-## Why I built it
-
-I work in marketing and real estate research and use AI extensively. My ideas and reflections were scattered across chat windows. I built Yuanhua with AI around that everyday problem and am sharing the work openly.
-
-## License
-
-Project code and original documentation use [MIT](LICENSE). Third-party logos and trademarks remain their owners’ property, imply no endorsement, and are not relicensed by this project. See `assets/品牌素材来源.json` for sources.
+Third-party logos and trademarks remain their owners’ property and imply no endorsement.

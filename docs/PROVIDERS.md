@@ -5,13 +5,13 @@
 | ChatGPT | 已有适配器；平台页面变化可能导致失败 / Existing adapter, subject to page changes | 官方 JSON / ZIP |
 | Gemini | 已有适配器；仅采集平台提供的文字 / Existing adapter, text only | Takeout JSON / HTML |
 | DeepSeek / 豆包 | 已有适配器 / Existing adapters | 通用 JSON / Generic JSON |
-| Claude | 未适配 / Not available | conversations.json / ZIP；已用合成样例测试 / Tested with synthetic fixtures |
+| Claude | 未适配 / Not available | conversations.json / ZIP |
 | Kimi / Grok | 未适配 / Not available | 仅下述通用 JSON；不能直接导入未知官方格式 / Generic JSON only |
 | 其他 AI / 本地 Agent | 未适配 / Not available | 下述通用 JSON / Generic JSON below |
 
-“支持文件导入”不代表“支持网页全量自动采集”。网页发现数不是账号完整历史数。新适配器未经真实账号验收，不应标注全量支持。
+“支持文件导入”不代表“支持网页全量自动采集”。网页发现数不是账号完整历史数。浏览器采集受平台页面及账号可访问内容影响，不保证覆盖完整历史。
 
-File import does not imply browser collection. Discovered history is not a verified complete account history. Do not claim full support without testing a real provider account.
+File import does not imply browser collection. Discovered history is not a verified complete account history. Browser collection depends on provider pages and accessible account content; complete history is not guaranteed.
 
 在控制台展开“添加其他 AI / Agent”，选择来源，导入文件。新增来源与四个原有网页采集来源分开。资料库支持按平台筛选；导出页面按来源提供 Markdown 和 JSON。
 
@@ -38,12 +38,6 @@ Expand **Add another AI / Agent**, select a source, and import a file. Imported 
 
 An outer `{"conversations": [...]}` object is also accepted. Use `account` to separate accounts and `source` to separate other agents. Reimporting the same source/account/conversation ID updates that record; source files and snapshots are retained. Unknown roles remain unknown. Text only; attachments are not downloaded. The file and expanded JSON limits are 100 MB. ZIP paths are never extracted.
 
-## 贡献新的网页适配器 / Contributing browser adapters
+## 扩展平台支持 / Extending provider support
 
-1. `extension/providers.js`：域名、主页、消息解析和历史发现。
-2. `collector_v2.py` 与 `extension/manifest.json`：同步声明允许的来源和最小权限。
-3. `provider_catalog.py` 与前端：声明真实能力，添加品牌素材来源记录。
-4. 用合成记录测试新安装、账号隔离、断联、页面变化、暂停/恢复、原文保留、中英界面。
-5. 再用已授权的真实账号验收。不要提交账号、Cookie、原始对话或私有截图。
-
-Add an adapter, declare the minimal allowed hosts, update capability metadata and UI, test failure paths with synthetic data, then verify an authorized real account. Never commit account data or private examples.
+[参与贡献 / Contributing](../CONTRIBUTING.md)

@@ -1,8 +1,8 @@
 # 演示素材 / Demo media
 
-项目首页链接的30秒视频是功能示意，使用虚构示例数据，不是实际采集速度证明。没有旁白，不包含作者录音或私人聊天资料。
+演示使用虚构示例数据，展示操作流程；实际采集速度取决于平台和网络情况。
 
-The 30-second demonstration uses synthetic example data. It illustrates the workflow and does not prove actual collection speed. No narration, personal recordings, or private chats are included.
+The demo illustrates the workflow using synthetic example data. Actual collection speed depends on the provider and network.
 
 - 画面、排版、动效、封面与点击/转场音效：本项目原创。
 - 配乐：Pop Track 03，作者 Lily J，来自 Mixkit。
