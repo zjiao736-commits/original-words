@@ -8,13 +8,13 @@
 
 无需配置模型 API，也无需为采集、导入、搜索和关键词分类购买模型额度。在已安装 Python 3 的 Mac 上，下载解压后可双击启动；首次网页采集需按指引安装 Chrome 扩展并登录平台，也可直接导入已有文件。
 
-[下载源码包](https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-0.10.3-source.zip) · [English](README.en.md) · [平台支持](docs/PROVIDERS.md)
+[下载源码包](https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-0.10.3-source.zip) · [English](README.en.md) · [平台支持](docs/PROVIDERS.md)
 
 ## 产品演示
 
-<a href="https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-demo.mp4"><img src="https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-cover.png" width="260" alt="原话产品演示"></a>
+<a href="https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-demo.mp4"><img src="https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-cover.png" width="260" alt="原话产品演示"></a>
 
-[观看演示](https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-demo.mp4)
+[观看演示](https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-demo.mp4)
 
 ## 你可以用原话做什么
 
@@ -30,7 +30,7 @@
 
 ### 1. 下载并启动
 
-[下载源码包](https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-0.10.3-source.zip)，解压到电脑，双击 `启动.command`。
+[下载源码包](https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-0.10.3-source.zip)，解压到电脑，双击 `启动.command`。
 
 如果 macOS 阻止直接运行，在解压后的 `yuanhua` 文件夹中打开终端，执行：
 

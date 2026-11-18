@@ -1,20 +1,20 @@
-# Yuanhua
+# Original Words
 
 **Bring the ideas scattered across your AI chats back to your computer.**
 
 Local deployment · No model tokens for collection or archiving · Chinese / English UI
 
-Yuanhua is a local AI conversation collector and archive. Bring work notes, ideas, and personal reflections from different platforms into one place. Keep your original words, search them, and export material you want to use again.
+Original Words is a local AI conversation collector and archive. Bring work notes, ideas, and personal reflections from different platforms into one place. Keep your original words, search them, and export material you want to use again.
 
 No model API setup or model credits are required for collection, import, search, or keyword categorization. On a Mac with Python 3 installed, download, extract, and double-click to start. Browser collection requires a one-time Chrome extension setup and provider sign-in; supported files can be imported directly.
 
-[Download source](https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-0.10.3-source.zip) · [中文](README.md) · [Provider support](docs/PROVIDERS.md)
+[Download source](https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-0.10.3-source.zip) · [中文](README.md) · [Provider support](docs/PROVIDERS.md)
 
 ## Product demo
 
-<a href="https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-demo.mp4"><img src="https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-cover.png" width="260" alt="Yuanhua product demo"></a>
+<a href="https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-demo.mp4"><img src="https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-cover.png" width="260" alt="Original Words product demo"></a>
 
-[Watch the demo](https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-demo.mp4)
+[Watch the demo](https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-demo.mp4)
 
 ## What you can do
 
@@ -30,7 +30,7 @@ The source edition requires macOS and Python 3. Browser collection also requires
 
 ### 1. Download and start
 
-[Download the source ZIP](https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.3/Yuanhua-0.10.3-source.zip), extract it, and double-click `启动.command`.
+[Download the source ZIP](https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-0.10.3-source.zip), extract it, and double-click `启动.command`.
 
 If macOS blocks direct execution, open a terminal in the extracted `yuanhua` folder and run:
 
