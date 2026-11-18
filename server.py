@@ -123,6 +123,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self.valid_host(): return self.reply(403,{'error':'Host rejected'})
         p=urlparse(self.path)
+        if p.path=='/api/health':return self.reply(200,{'app':'yuanhua','instance':hashlib.sha256(str(ROOT.resolve()).encode()).hexdigest()})
         if p.path=='/connect':return self.reply(200,(ROOT/'connect.html').read_text(),'text/html; charset=utf-8')
         if p.path=='/connect.js':return self.reply(200,(ROOT/'connect.js').read_text(),'application/javascript; charset=utf-8')
         if p.path=='/api/history-index':

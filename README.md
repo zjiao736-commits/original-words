@@ -1,4 +1,4 @@
-# 原话 Yuanhua
+# 原话
 
 **把散在 AI 对话里的想法，收回自己的电脑。**
 
@@ -9,6 +9,14 @@
 采集、导入、搜索和关键词分类不调用大模型，不需要模型 API Key。访问平台仍需网络和自己的账号；将导出资料交给其他 AI 使用时，费用由所用工具决定。
 
 > **开发预览版 · macOS**。网页采集依赖平台页面结构，不能保证所有历史记录都已发现。其他系统和所有账号环境尚未验证。
+
+## 30 秒演示
+
+无旁白 · 字幕与动效 · 示例数据。点击封面观看或下载视频。
+
+<a href="https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.2/Yuanhua-demo.mp4"><img src="https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.2/Yuanhua-cover.png" width="260" alt="Yuanhua demo"></a>
+
+[MP4](https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.2/Yuanhua-demo.mp4) · [素材与配乐说明 / Media credits](docs/MEDIA.md)
 
 ## 能做什么
 
@@ -35,7 +43,7 @@
 需要 macOS、Python 3；网页采集还需要 Google Chrome。日常服务只用 Python 标准库。
 
 1. 下载并解压源码 ZIP，保持文件夹结构完整。
-2. 在文件夹里打开终端，执行：
+2. 双击 `启动.command` 打开控制台。如果 macOS 阻止直接运行，也可以在文件夹里打开终端，执行：
 
    ```bash
    python3 desktop_launcher.py

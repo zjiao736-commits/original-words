@@ -1,16 +1,28 @@
 """本地桌面入口：先确认服务，再明确使用普通 Chrome。"""
-import urllib.request, subprocess, sys, time, webbrowser
+import urllib.request, urllib.error, subprocess, sys, time, webbrowser, json, hashlib
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 CHROME=Path('/Applications/Google Chrome.app')
 opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
-def healthy():
+def service_status():
  try:
-  with opener.open('http://127.0.0.1:8765/api/browser',timeout=2) as response:return response.status==200
- except Exception:return False
+  with opener.open('http://127.0.0.1:8765/api/health',timeout=2) as response:
+   data=json.load(response)
+  expected=hashlib.sha256(str(ROOT.resolve()).encode()).hexdigest()
+  return 'same' if data.get('app')=='yuanhua' and data.get('instance')==expected else 'other'
+ except urllib.error.HTTPError:
+  return 'other'
+ except Exception:
+  return 'unavailable'
+
+def healthy():
+ return service_status()=='same'
 
 def main():
  if not healthy():
+  if service_status()=='other':
+   print('端口8765已有其他实例运行。请先退出原来的本地服务，再启动本文件夹；为保护资料，不会自动连接或关闭其他实例。 / Another local instance is running on port 8765. Stop that instance before opening this folder.',file=sys.stderr)
+   return 1
   with (ROOT/'service.log').open('a') as log:
    subprocess.Popen([sys.executable,str(ROOT/'server.py')],cwd=ROOT,stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
   for _ in range(30):

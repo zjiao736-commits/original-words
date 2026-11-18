@@ -1,4 +1,4 @@
-# Yuanhua 原话
+# Yuanhua
 
 **Bring the ideas scattered across your AI chats back to your computer.**
 
@@ -9,6 +9,14 @@ Yuanhua is a local archive for your AI conversations. Keep your original words, 
 Collection, import, search, and keyword categorization make no model calls and require no model API key. Provider access still needs internet and your own account. Any later AI use has its own costs.
 
 > **macOS development preview.** Browser collection depends on provider page structure and cannot guarantee a complete account history. Other operating systems and all account environments have not been verified.
+
+## 30-second demo
+
+No narration · Captions and motion · Example data. Click the cover to watch or download.
+
+<a href="https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.2/Yuanhua-demo.mp4"><img src="https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.2/Yuanhua-cover.png" width="260" alt="Yuanhua demo"></a>
+
+[MP4](https://github.com/zjiao736-commits/yuanhua/releases/download/v0.10.2/Yuanhua-demo.mp4) · [素材与配乐说明 / Media credits](docs/MEDIA.md)
 
 ## Features
 
@@ -35,7 +43,7 @@ Collection, import, search, and keyword categorization make no model calls and r
 Requires macOS and Python 3. Browser collection also needs Google Chrome. The everyday service uses the Python standard library.
 
 1. Download and extract the source ZIP, preserving the directory structure.
-2. Open a terminal in the extracted folder and run:
+2. Double-click `启动.command` to open the dashboard. If macOS blocks direct execution, open a terminal in the extracted folder and run:
 
    ```bash
    python3 desktop_launcher.py
