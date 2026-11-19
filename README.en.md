@@ -8,13 +8,13 @@ Original Words is a local AI conversation collector and archive. Bring work note
 
 No model API setup or model credits are required for collection, import, search, or keyword categorization. On a Mac with Python 3 installed, download, extract, and double-click to start. Browser collection requires a one-time Chrome extension setup and provider sign-in; supported files can be imported directly.
 
-[Download source](https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-0.10.3-source.zip) · [中文](README.md) · [Provider support](docs/PROVIDERS.md)
+[Download source](https://github.com/zjiao736-commits/original-words/releases/download/v0.10.4/Original-Words-0.10.4-source.zip) · [中文](README.md) · [Provider support](docs/PROVIDERS.md)
 
 ## Product demo
 
-<a href="https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-demo.mp4"><img src="https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-cover.png" width="260" alt="Original Words product demo"></a>
+<a href="https://github.com/zjiao736-commits/original-words/releases/download/v0.10.4/Yuanhua-demo.mp4"><img src="https://github.com/zjiao736-commits/original-words/releases/download/v0.10.4/Yuanhua-cover.png" width="260" alt="Original Words product demo"></a>
 
-[Watch the demo](https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-demo.mp4)
+[Watch the demo](https://github.com/zjiao736-commits/original-words/releases/download/v0.10.4/Yuanhua-demo.mp4)
 
 ## What you can do
 
@@ -30,7 +30,7 @@ The source edition requires macOS and Python 3. Browser collection also requires
 
 ### 1. Download and start
 
-[Download the source ZIP](https://github.com/zjiao736-commits/original-words/releases/download/v0.10.3/Yuanhua-0.10.3-source.zip), extract it, and double-click `启动.command`.
+[Download the source ZIP](https://github.com/zjiao736-commits/original-words/releases/download/v0.10.4/Original-Words-0.10.4-source.zip), extract it, and double-click `启动.command`.
 
 If macOS blocks direct execution, open a terminal in the extracted `yuanhua` folder and run:
 
@@ -66,7 +66,7 @@ Search and revisit records in **My words**. Download Markdown or JSON in **Expor
 
 Archived records, imported source files, and exported material stay on your computer. Stop tasks and the service before making a full backup of `archive.sqlite3`, `imports/`, and `exports/`.
 
-This is a macOS development preview. Browser collection requires internet and your signed-in account. Provider page changes, verification prompts, or sleep may pause collection; discovered counts are not complete account-history totals. Attachments are not downloaded automatically. Import again to capture new messages in an existing conversation. Windows / Linux desktop startup is not supported yet.
+This is a macOS development preview. Browser collection requires internet and your signed-in account. Provider page changes, verification prompts, or sleep may pause collection; discovered counts are not complete account-history totals. Attachments are not downloaded automatically. Run GPT collection again to refresh discovered conversations; reimport files to update other imported sources. Windows / Linux desktop startup is not supported yet.
 
 Collection and archiving make no model calls. Later processing with other AI tools has its own costs.
 

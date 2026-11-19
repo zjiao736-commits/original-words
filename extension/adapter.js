@@ -6,18 +6,40 @@
  function scrollers(root){return [root,...root.querySelectorAll('*')].filter(e=>e.scrollHeight>e.clientHeight+40&&/auto|scroll/.test(getComputedStyle(e).overflowY))}
  function ancestorScrollers(n){const found=[];for(let e=n?.parentElement;e;e=e.parentElement)if(e.scrollHeight>e.clientHeight+40&&/auto|scroll/.test(getComputedStyle(e).overflowY))found.push(e);return found}
  function nodes(){if(host==='chat.deepseek.com')return [...document.querySelectorAll('.ds-message')];if(host==='www.doubao.com')return [...document.querySelectorAll('[data-message-role="user"],[data-message-role="assistant"]')];if(host==='gemini.google.com')return [...document.querySelectorAll('user-query,model-response')];// 混合布局同时收集新版bubble与旧版角色节点；只按DOM包含关系去重，不按文字去重。
- const candidates=[...document.querySelectorAll('[data-user-message-bubble],[data-turn="user"],[data-turn="assistant"],[data-message-author-role],[data-testid^="conversation-turn-"],[data-testid="conversation-turn"]')];
+ const candidates=[...document.querySelectorAll('[data-testid="user-message"],.user-message-bubble,[data-user-message-bubble],[data-turn="user"],[data-turn="assistant"],[data-message-author-role],[data-testid^="conversation-turn-"],[data-testid="conversation-turn"]')];
  return candidates.filter(n=>!candidates.some(child=>child!==n&&n.contains(child)))}
- function read(n){let role,content;if(host==='chatgpt.com'&&n.matches('[data-user-message-bubble]')){const t=(n.querySelector('.whitespace-pre-wrap')||n).innerText;return t?.trim()?{role:'user',text:t}:null;}
+ function read(n){let role,content;if(host==='chatgpt.com'&&n.matches('[data-user-message-bubble],[data-testid="user-message"],.user-message-bubble')){const t=(n.querySelector('.whitespace-pre-wrap')||n).innerText;return t?.trim()?{role:'user',text:t}:null;}
   if(host==='chat.deepseek.com'){
    if(n.querySelector('.ds-assistant-message-main-content')){role='assistant';content=n.querySelector('.ds-assistant-message-main-content')}
    else if(n.matches('.d29f3d7d')&&n.querySelector('.fbb737a4')){role='user';content=n.querySelector('.fbb737a4')}
    else return null;
   }else if(host==='www.doubao.com'){role=n.getAttribute('data-message-role');const pieces=[...n.querySelectorAll('[data-testid="message_text_content"]')];content=null;const text=pieces.map(e=>e.innerText).join('\n');return text.trim()?{role,text}:null}
   else if(host==='gemini.google.com'){role=n.matches('user-query')?'user':'assistant';content=n.querySelector(role==='user'?'user-query-content, .query-text, .query-content':'message-content, .markdown')||n}
-  else{role=n.getAttribute('data-message-author-role')||n.getAttribute('data-turn');content=n.querySelector(role==='user'?'.whitespace-pre-wrap,.user-message-bubble':'[data-message-content],.markdown')||n;if(!role){const user=n.querySelector('[data-testid="user-message"],.user-message-bubble'),assistant=n.querySelector('[data-testid="assistant-message"],.markdown');if(user){role='user';content=user}else if(assistant){role='assistant';content=assistant}else return null}}
+  else{role=n.getAttribute('data-message-author-role')||n.getAttribute('data-turn')||n.closest('[data-message-author-role]')?.getAttribute('data-message-author-role')||n.closest('[data-turn]')?.getAttribute('data-turn');content=n.querySelector(role==='user'?'.whitespace-pre-wrap,.user-message-bubble':'[data-message-content],.markdown')||n;if(!role){const user=n.querySelector('[data-testid="user-message"],.user-message-bubble'),assistant=n.querySelector('[data-testid="assistant-message"],.markdown');if(user){role='user';content=user}else if(assistant){role='assistant';content=assistant}else return null}}
 
   const text=content?.innerText;return ['user','assistant'].includes(role)&&text?.trim()?{role,text}:null;
+ }
+ async function structuredGPT(){
+  if(host!=='chatgpt.com')return null;
+  const id=location.pathname.match(/\/c\/([\w-]+)/)?.[1];if(!id)return null;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+  try{
+   const sessionResponse=await fetch('/api/auth/session',{credentials:'same-origin',signal:controller.signal});if(!sessionResponse.ok)return null;
+   const session=await sessionResponse.json();if(typeof session.accessToken!=='string')return null;
+   // Existing session is used only for this same-origin account read; never persisted or logged.
+   const response=await fetch('/backend-api/conversation/'+encodeURIComponent(id),{credentials:'same-origin',signal:controller.signal,headers:{Authorization:'Bearer '+session.accessToken}});
+   if(response.status===429)throw Error('平台请求频率受限，请稍后再同步');if(!response.ok)return null;
+   const conversation=await response.json(),mapping=conversation.mapping;if(!mapping||typeof mapping!=='object')return null;
+   const chain=[],seen=new Set();let cursor=conversation.current_node;
+   while(cursor&&mapping[cursor]&&!seen.has(cursor)){seen.add(cursor);chain.push(mapping[cursor]);cursor=mapping[cursor].parent}
+   if(!chain.length)return null;chain.reverse();const messages=[];
+   for(const node of chain){const m=node.message,role=m?.author?.role;if(!['user','assistant'].includes(role))continue;
+    const parts=m.content?.parts;if(!Array.isArray(parts))continue;
+    const text=parts.map(p=>typeof p==='string'?p:p&&typeof p.text==='string'?p.text:'').filter(t=>t!=='').join('\n');if(text.trim())messages.push({role,text});
+   }
+   if(!messages.some(m=>m.role==='user'))return null;
+   return {url:location.origin+location.pathname,title:conversation.title||document.title,messages,body:messages.map(m=>m.role+'\n'+m.text).join('\n\n'),metadata:{adapter:'chatgpt-structured-v1',completeness:'unverified',collectedAt:new Date().toISOString(),warnings:['已读取当前对话分支的文字；附件与其他分支未下载。']}};
+  }catch(e){if(/平台请求频率受限/.test(e.message))throw e;return null;}finally{clearTimeout(timer)}
  }
  window.archiveAdapter={
   async probe(){
@@ -53,7 +75,11 @@
     const fallback=roots.flatMap(scrollers);if(fallback.length)return [...new Set(fallback)];
     const doc=document.scrollingElement;return doc&&doc.scrollHeight>doc.clientHeight+2?[doc]:[];
    }
-   try{for(;round<240&&Date.now()<deadline;round++){
+   try{
+    // Every new scan starts at the newest history, including virtualized sidebars.
+    for(const e of historyScrollers()){positions.set(e,e.scrollTop);e.scrollTop=0;}
+    await wait(600);
+    for(;round<240&&Date.now()<deadline;round++){
     for(const x of links())all.set(x.url,x);
     ss=historyScrollers();for(const e of ss)if(!positions.has(e))positions.set(e,e.scrollTop);
     atBottom=ss.length>0&&ss.every(e=>e.scrollTop+e.clientHeight>=e.scrollHeight-4);
@@ -67,6 +93,7 @@
   async extract(){
    const extractStarted=performance.now();
    if(!pattern.test(location.pathname))throw Error('不是受支持的对话地址');
+   const structured=await structuredGPT();if(structured)return structured;
    const readyDeadline=Date.now()+20000;while(Date.now()<readyDeadline&&!nodes().some(n=>read(n)?.role==='user')){const t=document.title;if(/Just a moment|验证您是人类|Verify you are human/i.test(t))throw Error('GPT显示访问验证页，请在普通Chrome完成验证后再继续');await wait(500)}
    const initial=nodes();if(!initial.length)throw Error('未识别消息节点；诊断：标题='+document.title+'；页面状态='+document.readyState+'；正文字符='+document.body.innerText.length+'；turn='+document.querySelectorAll('[data-testid^="conversation-turn-"],[data-testid="conversation-turn"]').length+'；author='+document.querySelectorAll('[data-message-author-role]').length+'；结构='+JSON.stringify([...document.querySelectorAll('main *')].filter(e=>/user|assistant|message|turn|markdown|whitespace|select-text|conversation|text-start/.test(String(e.className)+' '+e.getAttribute('role'))).slice(0,45).map(e=>({tag:e.tagName,attrs:[...e.attributes].filter(a=>a.name.startsWith('data-')||a.name==='role').map(a=>[a.name,a.value.slice(0,70)]),classes:String(e.className).slice(0,220)})))+'。请核对新打开的GPT对话是否显示正文或验证提示');
    const nodeCounts=()=>{const ns=nodes(),messages=ns.map(read).filter(Boolean);return {nodes:ns.length,user:messages.filter(x=>x.role==='user').length,assistant:messages.filter(x=>x.role==='assistant').length,modern:document.querySelectorAll('[data-user-message-bubble]').length,turnUser:document.querySelectorAll('[data-turn="user"]').length,authorUser:document.querySelectorAll('[data-message-author-role="user"]').length}};
@@ -94,7 +121,7 @@ for(let ni=0;ni<ns.length;ni++){const n=ns[ni],m=parsed[ni];if(m){const fp=m.rol
    const current=nodes().map(read).filter(Boolean);const warnings=['DOM采集，未验证服务端总轮数；附件未下载。'];if(host==='chatgpt.com'&&document.querySelector('[data-user-message-bubble]'))warnings.push('新版GPT：仅提取明确的用户原话节点，AI回复暂未采集；原始上下文不完整。');
    const partial=round>=6000||Date.now()>=scrollDeadline;if(partial)warnings.push('滚动达到时间或次数上限，已保留局部记录，未确认完整。');
    if(collected.length>current.length)warnings.push('检测到分段加载，消息按首次读取顺序保存，需核对。');
-   if(!collected.some(m=>m.role==='user'))throw Error('未识别到用户原话，未保存为成功');
+   if(!collected.some(m=>m.role==='user'))throw Error('未识别到用户原话，未保存为成功；节点统计：'+JSON.stringify(nodeCounts()));
    return {url:location.origin+location.pathname,title:document.title,body:collected.map(m=>m.role+'\n'+m.text).join('\n\n'),messages:collected,metadata:{scrollDiagnostics,adapter:host+'-dom-v2',completeness:partial?'partial':'unverified',warnings,collectedAt:new Date().toISOString(),rounds:round,extractMilliseconds:Math.round(performance.now()-extractStarted),scrollState:scroll?{connected:scroll.isConnected,top:scroll.scrollTop,height:scroll.scrollHeight,viewport:scroll.clientHeight}:null}};
   }
  };

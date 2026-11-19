@@ -28,11 +28,16 @@ async function probe(){if(probing)return false;probing=true;try{
  if(info.requiresLogin||!info.ready){await mark('requires_login',info.reason||'请在控制台点击“前往登录”，完成平台验证后重新检测','login');return false}
  await mark('ready','已关联 '+provider.name+' 的可读取页面；未读取密码','ready');return true;
  }catch(e){source=null;await mark('disconnected',e.message,'connection');return false}finally{probing=false}}
-async function scan(){await mark('discovering','正在扫描历史；目录数量不代表账号全部历史','scan');const t=await sourceTab(),result=await execute(t.id,'discover');const links=new Map((result.links||[]).map(x=>[canonical(x.url),{url:canonical(x.url),title:x.title}]));state.warnings=[...(result.warnings||[])];
+async function scan(){await mark('discovering','正在扫描历史；目录数量不代表账号全部历史','scan');const t=await sourceTab();let result,scanTab=null;
+ try{if(platform==='chatgpt'){scanTab=await chrome.tabs.create({url:provider.home,active:false});await waitComplete(scanTab.id);result=await execute(scanTab.id,'discover')}else result=await execute(t.id,'discover');}
+ finally{if(scanTab)await chrome.tabs.remove(scanTab.id).catch(()=>{})}
+const links=new Map((result.links||[]).map(x=>[canonical(x.url),{url:canonical(x.url),title:x.title}]));state.warnings=[...(result.warnings||[])];
  // 目录只在至少3条当前账号链接交叉匹配后合并，不把另一个账号的目录混入。
  if(platform==='chatgpt'){try{const index=await request('/api/history-index?platform=chatgpt');const items=index.items||[],known=new Set(items.map(x=>canonical(x.url)));const overlap=[...links.keys()].filter(x=>known.has(x)).length;if(overlap>=3){for(const x of items)if(!links.has(canonical(x.url)))links.set(canonical(x.url),{url:canonical(x.url),title:x.title});state.warnings.push('与已连接应用目录交叉匹配 '+overlap+' 条，目录合并后 '+links.size+' 条；精确总数仍未核对')}}catch(e){state.warnings.push('目录补充暂不可用，本轮只保存已发现的链接')}}
  let saved=new Set();try{saved=new Set((await request('/api/saved-index?platform='+platform+'&accountId='+encodeURIComponent(accountId))).urls.map(canonical))}catch(e){throw Error('无法核对已有档案，已暂停，避免重复采集')}
  const old=new Map(state.queue.map(x=>[canonical(x.url),x]));for(const [url,x] of links){if(!old.has(url)){const item={...x,status:saved.has(url)?'saved':'pending'};state.queue.push(item);old.set(url,item)}else if(saved.has(url))old.get(url).status='saved';else if(old.get(url).status==='saved')old.get(url).status='pending'}
+ // Explicit synchronization must re-read existing GPT conversations too: URLs stay unchanged when messages are added.
+ if(platform==='chatgpt'){for(const item of state.queue)if(links.has(canonical(item.url)))item.status='pending';const rank=new Map([...links.keys()].map((url,i)=>[url,i]));state.queue.sort((a,b)=>(rank.get(canonical(a.url))??Number.MAX_SAFE_INTEGER)-(rank.get(canonical(b.url))??Number.MAX_SAFE_INTEGER));}
  if(!links.size){await mark('paused','没有发现可读取的历史条目；未视为采集完成，请检查登录和侧栏','needs_review');return false}
  await post();return true;
 }
@@ -51,13 +56,13 @@ async function collect(command){if(busy)return;busy=true;state.requestId=command
     if(canonical(data.url)!==canonical(item.url))throw Error('读取时跳到了其他页面，未保存');
     if(!data.messages?.some(m=>m.role==='user'&&m.text?.trim()))throw Error('未识别到用户原话，未计为保存成功');
     data.metadata={...data.metadata,accountId,sourceAccount:account.label,collectorProtocol:2};if(item.title)data.title=item.title;
-    await request('/api/collect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-    item.status=data.metadata.completeness==='partial'?'partial':'saved';item.warnings=data.metadata.warnings||[];
+    const receipt=await request('/api/collect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    item.status=receipt.needsReview||data.metadata.completeness==='partial'?'partial':'saved';item.warnings=data.metadata.warnings||[];
     if(item.status==='partial')state.warnings.push('有局部快照需要复核；继续处理其余记录，不计入完整保存数量')
-   }catch(e){item.error=e.message;if(/本次原话比既有档案短/.test(e.message)){item.status='partial';state.warnings=[...new Set([...state.warnings,'保留较完整的旧档案，本次短快照单列待复核'])];}else{item.status='failed';pauseRequested=true;errorOccurred=true;state.warnings=[...new Set([...state.warnings,e.message])];}}
+   }catch(e){item.error=e.message;if(/本次原话比既有档案短/.test(e.message)){item.status='partial';state.warnings=[...new Set([...state.warnings,'保留较完整的旧档案，本次短快照单列待复核'])];}else{item.status='failed';if(!/未识别到用户原话|未识别消息节点/.test(e.message))pauseRequested=true;errorOccurred=true;state.warnings=[...new Set([...state.warnings,e.message])];}}
    await post();if(!pauseRequested)await sleep(2500);
   }
-  const partialCount=state.queue.filter(x=>x.status==='partial').length;await mark(pauseRequested?'paused':partialCount?'partial':'done',pauseRequested?(errorOccurred?'读取遇到问题，已暂停。请查看本页问题详情':'已暂停，进度保留'):partialCount?'本轮已处理；'+partialCount+' 条局部快照需要复核，其余记录已保存':'本轮发现的记录已保存，账号全部历史仍需核对',pauseRequested||partialCount?'needs_review':'done');
+  const partialCount=state.queue.filter(x=>x.status==='partial'||x.status==='failed').length;await mark(pauseRequested?'paused':partialCount?'partial':'done',pauseRequested?(errorOccurred?'读取遇到问题，已暂停。请查看本页问题详情':'已暂停，进度保留'):partialCount?'本轮已处理；'+partialCount+' 条局部快照需要复核，其余记录已保存':'本轮发现的记录已保存，账号全部历史仍需核对',pauseRequested||partialCount?'needs_review':'done');
  }catch(e){errorOccurred=true;state.warnings=[...new Set([...state.warnings,e.message])];await mark('paused',e.message,'needs_review')}
  finally{const owned=readTab;readTab=null;if(owned)await chrome.tabs.remove(owned.id).catch(()=>{});busy=false;state.finished_at=Date.now()/1000;await post()}
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "本地对话收藏器",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "description": "将已打开的 AI 对话保存到本机，不调用模型。",
   "permissions": [
     "activeTab",
